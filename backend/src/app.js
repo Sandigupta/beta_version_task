@@ -2,9 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-// const mongoSanitize = require('express-mongo-sanitize'); // Temporarily commented out
-
-const { createRateLimiter } = require('./middleware/rateLimiter');
 const errorHandler = require('./middleware/errorHandler');
 const cacheService = require('./services/cacheService');
 
@@ -15,12 +12,10 @@ const chapter = require('./routes/chapter');
 const app = express();
 
 
-
-
 // Initialize cache service
 cacheService.initialize();
 
-// v2
+
 // Trust proxy (IMPORTANT: Set this early for rate limiting with correct IP)
 app.set('trust proxy', 1);
 
@@ -35,40 +30,6 @@ app.use(helmet());
 app.use(cors());
 
 
-// v2
-// Custom sanitization middleware
-const sanitizeInput = (req, res, next) => {
-  
-  // v3
-  const sanitize = (obj) => {
-    console.log('Sanitizing:', obj);
-
-    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-      for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-          // Perform sanitization logic here
-          if (/^\$/.test(key)) {
-            delete obj[key]; // Remove keys starting with `$`
-          } else if (typeof obj[key] === 'object') {
-            sanitize(obj[key]); // Recursively sanitize nested objects
-          }
-        }
-      }
-    }
-  };
-  
-  // Sanitize body, params, and query
-  if (req.body) sanitize(req.body);
-  if (req.params) sanitize(req.params);
-  if (req.query) sanitize(req.query);
-  
-  next();
-};
-
-app.use(sanitizeInput); // Use custom sanitization instead of express-mongo-sanitize
-
-
-
 // Development logging
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
@@ -79,18 +40,18 @@ if (process.env.NODE_ENV === 'development') {
 
 
 // // Rate limiting
-// const rateLimiter = createRateLimiter();
-// app.use(rateLimiter);
+const { rateLimit } = require('express-rate-limit')
 
-try {
-  const rateLimiter = createRateLimiter();
-  app.use(rateLimiter);
-  console.log('Rate limiter initialized successfully');
-} catch (error) {
-  console.error('Failed to initialize rate limiter:', error);
-  console.log('Continuing without rate limiting...');
-}
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  limit: 30, // 30 requests per minute
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
 
+// Apply the rate limiting middleware to all requests.
+
+app.use(rateLimit);
 
 
 // Health check endpoint
@@ -183,76 +144,3 @@ app.all('/{*any}', (req, res) => {
 app.use(errorHandler);
 
 module.exports = app;
-
-
-
-
-
-
-
-
-
-
-
-
-// Custom sanitization middleware (replaces express-mongo-sanitize)
-// const sanitizeInput = (req, res, next) => {
-//   const sanitize = (obj) => {
-//     if (obj && typeof obj === 'object') {
-//       for (const key in obj) {
-//         if (typeof obj[key] === 'string') {
-//           // Remove MongoDB operators and other dangerous patterns
-//           obj[key] = obj[key].replace(/^\$/, '_').replace(/\./g, '_');
-//         } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-//           sanitize(obj[key]);
-//         }
-//       }
-//     }
-//   };
-  
-//   // Sanitize body and params (skip query to avoid the error)
-//   if (req.body) {
-//     sanitize(req.body);
-//   }
-//   if (req.params) {
-//     sanitize(req.params);
-//   }
-  
-//   // For query parameters, create a sanitized copy
-//   if (req.query && Object.keys(req.query).length > 0) {
-//     const sanitizedQuery = JSON.parse(JSON.stringify(req.query));
-//     sanitize(sanitizedQuery);
-//     req.sanitizedQuery = sanitizedQuery;
-    
-//     // Log sanitization if needed
-//     const originalKeys = Object.keys(req.query);
-//     const sanitizedKeys = Object.keys(sanitizedQuery);
-//     const modified = originalKeys.some(key =>
-//       JSON.stringify(req.query[key]) !== JSON.stringify(sanitizedQuery[key])
-//     );
-    
-//     if (modified) {
-//       console.warn(`Sanitized query parameters in ${req.path}`);
-//     }
-//   }
-  
-//   next();
-// };
-
-
-
-
-// const sanitize = (obj) => {
-  //   if (obj && typeof obj === 'object' && obj !== null) {
-  //     for (const key in obj) {
-  //       if (obj.hasOwnProperty(key)) {
-  //         if (typeof obj[key] === 'string') {
-  //           // Remove MongoDB operators and other dangerous patterns
-  //           obj[key] = obj[key].replace(/^\$/, '_').replace(/\./g, '_');
-  //         } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-  //           sanitize(obj[key]);
-  //         }
-  //       }
-  //     }
-  //   }
-  // };

@@ -6,17 +6,18 @@ class CacheService {
     this.CACHE_EXPIRY = 3600; // 1 hour in seconds
     this.initialized = false;
   }
+  
 
   async initialize() {
     // v2: Add delay and retry mechanism for initialization
     const attemptInit = async () => {
-      this.client =await getRedisClient();
+      this.client = await getRedisClient();
       if (this.client) {
         this.initialized = true;
         console.log('Cache service initialized successfully');
       } else {
         console.warn('Cache service initialization failed - Redis not available');
-        // v2: Retry initialization after 5 seconds
+        // v2: Retry initialization after 3 seconds
         setTimeout(() => {
           if (!this.initialized) {
             console.log('Retrying cache service initialization...');
@@ -26,15 +27,15 @@ class CacheService {
       }
     };
     
-    attemptInit();
+    await attemptInit(); // Fix: Add await here
   }
-
+  
   isAvailable() {
-    // v2: Enhanced availability check
-    const client = this.getClient();
-    return client && client.isOpen && this.initialized;
+    // Fix: Remove async/await - make this synchronous
+    // Don't call getClient() here as it's async and would complicate this method
+    return this.client && this.client.isOpen && this.initialized;
   }
-
+  
   // v2: Add method to get fresh client reference
   async getClient() {
     if (!this.client || !this.client.isOpen) {
@@ -43,7 +44,7 @@ class CacheService {
     return this.client;
   }
 
-  generateCacheKey(endpoint, query = {}) {
+ async generateCacheKey(endpoint, query = {}) {
     // const queryString = Object.keys(query)
     //   .sort()
     //   .map(key => `${key}=${query[key]}`)
@@ -79,7 +80,7 @@ class CacheService {
 
     try {
       // v2: Use dynamic client reference
-      const client = this.getClient();
+      const client = await this.getClient();
       if (!client) {
         console.warn('Redis client not available for cache get');
         return null;
@@ -90,7 +91,7 @@ class CacheService {
         setTimeout(() => reject(new Error('Redis operation timeout')), 5000);
       });
 
-      const getPromise = client.get(key);
+      const getPromise = await client.get(key);
       const data = await Promise.race([getPromise, timeoutPromise]);
 
       if (data) {
@@ -112,7 +113,7 @@ class CacheService {
 
     try {
       // v2: Use dynamic client reference
-      const client = this.getClient();
+      const client = await this.getClient();
       if (!client) {
         console.warn('Redis client not available for cache set');
         return false;
@@ -123,7 +124,7 @@ class CacheService {
         setTimeout(() => reject(new Error('Redis operation timeout')), 5000);
       });
 
-      const setPromise = client.setEx(key, expiry, JSON.stringify(data));
+      const setPromise =await client.setEx(key, expiry, JSON.stringify(data));
       await Promise.race([setPromise, timeoutPromise]);
 
       console.log(`Cache SET for key: ${key} (TTL: ${expiry}s)`);
@@ -141,7 +142,7 @@ class CacheService {
 
     try {
       // v2: Use dynamic client reference with timeout
-      const client = this.getClient();
+      const client =await this.getClient();
       if (!client) {
         console.warn('Redis client not available for cache delete');
         return false;
@@ -151,7 +152,7 @@ class CacheService {
         setTimeout(() => reject(new Error('Redis operation timeout')), 5000);
       });
 
-      const deletePromise = client.del(key);
+      const deletePromise = await client.del(key);
       const result = await Promise.race([deletePromise, timeoutPromise]);
 
       console.log(`Cache DELETE for key: ${key} (deleted: ${result > 0})`);
@@ -169,7 +170,7 @@ class CacheService {
 
     try {
       // v2: Use dynamic client reference with timeout
-      const client = this.getClient();
+      const client =await this.getClient();
       if (!client) {
         console.warn('Redis client not available for cache invalidation');
         return false;
@@ -179,11 +180,11 @@ class CacheService {
         setTimeout(() => reject(new Error('Redis operation timeout')), 10000); // Longer timeout for pattern operations
       });
 
-      const keysPromise = client.keys(pattern);
+      const keysPromise = await client.keys(pattern);
       const keys = await Promise.race([keysPromise, timeoutPromise]);
 
       if (keys.length > 0) {
-        const deletePromise = client.del(keys);
+        const deletePromise =await client.del(keys);
         await Promise.race([deletePromise, timeoutPromise]);
         console.log(`Cache INVALIDATED pattern: ${pattern} (${keys.length} keys deleted)`);
       } else {
@@ -207,7 +208,7 @@ class CacheService {
     }
 
     try {
-      const client = this.getClient();
+      const client =await this.getClient();
       if (!client) {
         console.warn('Redis client not available for cache clear');
         return false;
@@ -217,7 +218,7 @@ class CacheService {
         setTimeout(() => reject(new Error('Redis operation timeout')), 10000);
       });
 
-      const flushPromise = client.flushDb();
+      const flushPromise =await client.flushDb();
       await Promise.race([flushPromise, timeoutPromise]);
 
       console.log('All cache cleared');
@@ -234,7 +235,7 @@ class CacheService {
       return { status: 'not_initialized', connected: false };
     }
 
-    const client = this.getClient();
+    const client =await this.getClient();
     if (!client || !client.isOpen) {
       return { status: 'unavailable', connected: false };
     }
