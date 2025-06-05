@@ -5,6 +5,6 @@ const { getChapter } = require('../controllers/chapterController');
 const router = express.Router();
 
 // Single chapter route
-router.get('/:id', getChapter);            // GET /api/v1/chapter/:id - Get chapter by ID
+router.get('/:id', getChapter); // GET /api/v1/chapter/:id - Get chapter by ID
 
 module.exports = router;

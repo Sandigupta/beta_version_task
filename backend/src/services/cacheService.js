@@ -7,10 +7,10 @@ class CacheService {
     this.initialized = false;
   }
 
-  initialize() {
+  async initialize() {
     // v2: Add delay and retry mechanism for initialization
-    const attemptInit = () => {
-      this.client = getRedisClient();
+    const attemptInit = async () => {
+      this.client =await getRedisClient();
       if (this.client) {
         this.initialized = true;
         console.log('Cache service initialized successfully');
@@ -22,7 +22,7 @@ class CacheService {
             console.log('Retrying cache service initialization...');
             attemptInit();
           }
-        }, 5000);
+        }, 3000);
       }
     };
     
@@ -36,9 +36,9 @@ class CacheService {
   }
 
   // v2: Add method to get fresh client reference
-  getClient() {
+  async getClient() {
     if (!this.client || !this.client.isOpen) {
-      this.client = getRedisClient();
+      this.client = await getRedisClient();
     }
     return this.client;
   }
@@ -264,6 +264,26 @@ class CacheService {
 }
 
 module.exports = new CacheService();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // const { getRedisClient } = require('../config/redis');
